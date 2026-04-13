@@ -1,0 +1,7 @@
+"venv/" 
+".env" 
+"chroma_db/" 
+"media/" 
+"*.pyc" 
+"__pycache__/" 
+"db.sqlite3" 
