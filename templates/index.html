@@ -1,426 +1,377 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>RAG Document Chatbot</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
+    header{background:#1a1a2e;color:white;padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+    header h1{font-size:18px;font-weight:600}
+    .user-info{font-size:13px;color:#a0aec0;display:flex;align-items:center;gap:12px}
+    .btn{padding:9px 18px;border-radius:8px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .2s}
+    .btn:hover{opacity:.85} .btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn-primary{background:#667eea;color:white}
+    .btn-danger{background:#fc8181;color:white}
+    .btn-outline{background:transparent;border:1px solid #667eea;color:#667eea}
+    .btn-sm{padding:5px 12px;font-size:12px}
+    .container{max-width:1100px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:320px 1fr;gap:20px}
+    .card{background:white;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+    .card h2{font-size:14px;font-weight:600;color:#2d3748;margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px}
 
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
-      min-height: 100vh;
-    }
+    /* Auth */
+    #auth-screen{max-width:400px;margin:80px auto;padding:0 16px}
+    .auth-tabs{display:flex;margin-bottom:20px;border-bottom:2px solid #e2e8f0}
+    .auth-tab{padding:10px 20px;cursor:pointer;font-size:14px;font-weight:500;color:#718096;border-bottom:2px solid transparent;margin-bottom:-2px}
+    .auth-tab.active{color:#667eea;border-bottom-color:#667eea}
+    .form-group{margin-bottom:14px}
+    .form-group label{display:block;font-size:13px;color:#4a5568;margin-bottom:5px;font-weight:500}
+    .form-group input{width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:8px;font-size:14px;outline:none}
+    .form-group input:focus{border-color:#667eea}
+    .auth-error{color:#e53e3e;font-size:13px;margin-top:8px}
 
-    header {
-      background: #1a1a2e;
-      color: white;
-      padding: 16px 32px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    header h1 { font-size: 20px; font-weight: 600; }
-    header span { font-size: 13px; color: #a0aec0; }
+    /* Upload */
+    .upload-area{border:2px dashed #cbd5e0;border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:.2s}
+    .upload-area:hover{border-color:#667eea;background:#f7f8ff}
+    .upload-area input{display:none}
+    .upload-area p{color:#718096;font-size:13px;margin-top:6px}
 
-    .container {
-      max-width: 900px;
-      margin: 32px auto;
-      padding: 0 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
+    /* Doc list */
+    .doc-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:.15s}
+    .doc-item:hover{background:#f7fafc}
+    .doc-item.selected{border-color:#667eea;background:#ebf4ff}
+    .doc-check{width:16px;height:16px;border-radius:4px;border:2px solid #cbd5e0;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+    .doc-item.selected .doc-check{background:#667eea;border-color:#667eea;color:white;font-size:10px}
+    .doc-name{font-size:13px;font-weight:500;color:#2d3748;flex:1}
+    .doc-meta{font-size:11px;color:#a0aec0}
+    .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500}
+    .badge-green{background:#c6f6d5;color:#276749}
 
-    .card {
-      background: white;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    }
-
-    .card h2 {
-      font-size: 15px;
-      font-weight: 600;
-      color: #2d3748;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Upload area */
-    .upload-area {
-      border: 2px dashed #cbd5e0;
-      border-radius: 8px;
-      padding: 32px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .upload-area:hover { border-color: #667eea; background: #f7f8ff; }
-    .upload-area.dragover { border-color: #667eea; background: #ebf4ff; }
-    .upload-area input { display: none; }
-    .upload-area p { color: #718096; font-size: 14px; margin-top: 8px; }
-    .upload-icon { font-size: 36px; }
-
-    /* Buttons */
-    .btn {
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    .btn:hover { opacity: 0.85; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: #667eea; color: white; }
-    .btn-danger  { background: #fc8181; color: white; }
-
-    /* Status badge */
-    .badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .badge-green  { background: #c6f6d5; color: #276749; }
-    .badge-blue   { background: #bee3f8; color: #2a69ac; }
-    .badge-yellow { background: #fefcbf; color: #975a16; }
-
-    /* Document list */
-    .doc-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .doc-item:hover { background: #f7fafc; }
-    .doc-item.active { border-color: #667eea; background: #ebf4ff; }
-    .doc-name { font-size: 14px; font-weight: 500; color: #2d3748; }
-    .doc-meta { font-size: 12px; color: #718096; margin-top: 2px; }
+    /* Sessions */
+    .session-item{padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:.15s}
+    .session-item:hover{background:#f7fafc}
+    .session-item.active{border-color:#667eea;background:#ebf4ff}
+    .session-title{font-size:13px;font-weight:500;color:#2d3748}
+    .session-docs{font-size:11px;color:#718096;margin-top:2px}
 
     /* Chat */
-    #chat-box {
-      height: 360px;
-      overflow-y: auto;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      background: #f7fafc;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .msg {
-      max-width: 80%;
-      padding: 10px 14px;
-      border-radius: 12px;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-    .msg.user {
-      align-self: flex-end;
-      background: #667eea;
-      color: white;
-      border-bottom-right-radius: 4px;
-    }
-    .msg.bot {
-      align-self: flex-start;
-      background: white;
-      color: #2d3748;
-      border: 1px solid #e2e8f0;
-      border-bottom-left-radius: 4px;
-    }
-    .msg.bot .sources {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid #e2e8f0;
-      font-size: 12px;
-      color: #718096;
-    }
-    .msg.thinking {
-      align-self: flex-start;
-      background: white;
-      border: 1px solid #e2e8f0;
-      color: #a0aec0;
-      font-style: italic;
-    }
-
-    .chat-input-row {
-      display: flex;
-      gap: 8px;
-    }
-    .chat-input-row input {
-      flex: 1;
-      padding: 10px 14px;
-      border: 1px solid #cbd5e0;
-      border-radius: 8px;
-      font-size: 14px;
-      outline: none;
-    }
-    .chat-input-row input:focus { border-color: #667eea; }
-
-    .empty-state {
-      text-align: center;
-      color: #a0aec0;
-      font-size: 14px;
-      padding: 40px 0;
-    }
+    #chat-box{height:420px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:14px;background:#f7fafc;display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+    .msg{max-width:82%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6}
+    .msg.user{align-self:flex-end;background:#667eea;color:white;border-bottom-right-radius:4px}
+    .msg.bot{align-self:flex-start;background:white;color:#2d3748;border:1px solid #e2e8f0;border-bottom-left-radius:4px}
+    .msg.thinking{align-self:flex-start;background:white;border:1px solid #e2e8f0;color:#a0aec0;font-style:italic}
+    .msg .sources{margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:11px;color:#718096}
+    .chat-input-row{display:flex;gap:8px}
+    .chat-input-row input{flex:1;padding:10px 14px;border:1px solid #cbd5e0;border-radius:8px;font-size:13px;outline:none}
+    .chat-input-row input:focus{border-color:#667eea}
+    .empty-state{text-align:center;color:#a0aec0;font-size:13px;padding:40px 0}
+    .session-header{margin-bottom:10px;padding:10px 12px;background:#ebf4ff;border-radius:8px;font-size:13px;color:#2d3748}
 
     /* Toast */
-    #toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      color: white;
-      display: none;
-      z-index: 999;
-    }
-    #toast.success { background: #48bb78; }
-    #toast.error   { background: #fc8181; }
+    #toast{position:fixed;bottom:20px;right:20px;padding:10px 18px;border-radius:8px;font-size:13px;color:white;display:none;z-index:999}
+    #toast.success{background:#48bb78} #toast.error{background:#fc8181}
+
+    .hidden{display:none!important}
+    .divider{height:1px;background:#e2e8f0;margin:12px 0}
   </style>
 </head>
 <body>
 
-<header>
-  <div>
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="card">
+    <h1 style="font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:4px">📄 RAG Chatbot</h1>
+    <p style="font-size:13px;color:#718096;margin-bottom:20px">Sign in to chat with your documents</p>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchTab('login')">Login</div>
+      <div class="auth-tab" onclick="switchTab('register')">Register</div>
+    </div>
+
+    <!-- Login -->
+    <div id="login-form">
+      <div class="form-group"><label>Username</label><input type="text" id="login-user" placeholder="Enter username"/></div>
+      <div class="form-group"><label>Password</label><input type="password" id="login-pass" placeholder="Enter password" onkeydown="if(event.key==='Enter')login()"/></div>
+      <button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
+      <div class="auth-error hidden" id="login-error"></div>
+    </div>
+
+    <!-- Register -->
+    <div id="register-form" class="hidden">
+      <div class="form-group"><label>Username</label><input type="text" id="reg-user" placeholder="Choose username"/></div>
+      <div class="form-group"><label>Email (optional)</label><input type="email" id="reg-email" placeholder="your@email.com"/></div>
+      <div class="form-group"><label>Password</label><input type="password" id="reg-pass" placeholder="Choose password"/></div>
+      <button class="btn btn-primary" style="width:100%" onclick="register()">Create Account</button>
+      <div class="auth-error hidden" id="reg-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app-screen" class="hidden">
+  <header>
     <h1>📄 RAG Document Chatbot</h1>
-    <span>Upload a document · Ask questions · Get AI answers</span>
-  </div>
-</header>
-
-<div class="container">
-
-  <!-- Upload Card -->
-  <div class="card">
-    <h2>📤 Upload Document</h2>
-    <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
-      <div class="upload-icon">📁</div>
-      <strong id="file-label">Click to choose a file</strong>
-      <p>Supports PDF and TXT files</p>
-      <input type="file" id="file-input" accept=".pdf,.txt" onchange="onFileSelected(this)"/>
+    <div class="user-info">
+      <span id="header-username"></span>
+      <button class="btn btn-sm btn-outline" style="color:white;border-color:rgba(255,255,255,.3)" onclick="logout()">Logout</button>
     </div>
-    <br/>
-    <button class="btn btn-primary" id="upload-btn" onclick="uploadDocument()" disabled>
-      Upload & Index
-    </button>
-    <span id="upload-status" style="margin-left:12px; font-size:13px; color:#718096;"></span>
-  </div>
+  </header>
 
-  <!-- Documents Card -->
-  <div class="card">
-    <h2>📚 Your Documents</h2>
-    <div id="doc-list"><div class="empty-state">No documents yet. Upload one above.</div></div>
-  </div>
+  <div class="container">
+    <!-- LEFT PANEL -->
+    <div style="display:flex;flex-direction:column;gap:16px">
 
-  <!-- Chat Card -->
-  <div class="card">
-    <h2>💬 Ask a Question
-      <span id="active-doc-badge"></span>
-    </h2>
-    <div id="chat-box">
-      <div class="empty-state">Select a document above, then ask a question.</div>
+      <!-- Upload -->
+      <div class="card">
+        <h2>📤 Upload Document</h2>
+        <div class="upload-area" onclick="document.getElementById('file-input').click()">
+          <div style="font-size:28px">📁</div>
+          <strong id="file-label" style="font-size:13px">Click to choose PDF or TXT</strong>
+          <p>Drag & drop supported</p>
+          <input type="file" id="file-input" accept=".pdf,.txt" onchange="onFileSelected(this)"/>
+        </div>
+        <br/>
+        <button class="btn btn-primary" id="upload-btn" onclick="uploadDoc()" disabled style="width:100%">Upload & Index</button>
+        <div id="upload-status" style="font-size:12px;color:#718096;margin-top:6px;text-align:center"></div>
+      </div>
+
+      <!-- Documents -->
+      <div class="card">
+        <h2>📚 Your Documents</h2>
+        <div style="font-size:12px;color:#718096;margin-bottom:8px">Select documents to chat with</div>
+        <div id="doc-list"><div class="empty-state">No documents yet</div></div>
+        <div class="divider"></div>
+        <button class="btn btn-primary" style="width:100%;font-size:13px" onclick="openCreateSession()">💬 Start Chat with Selected</button>
+      </div>
+
+      <!-- Sessions -->
+      <div class="card">
+        <h2>💬 Chat Sessions</h2>
+        <div id="session-list"><div class="empty-state">No sessions yet</div></div>
+      </div>
+
     </div>
-    <div class="chat-input-row">
-      <input type="text" id="question-input" placeholder="e.g. What is this document about?"
-             onkeydown="if(event.key==='Enter') askQuestion()"/>
-      <button class="btn btn-primary" id="ask-btn" onclick="askQuestion()" disabled>Ask</button>
+
+    <!-- RIGHT PANEL — Chat -->
+    <div class="card" style="display:flex;flex-direction:column">
+      <div id="session-header" class="session-header hidden"></div>
+      <h2 style="margin-bottom:10px">💬 Chat</h2>
+      <div id="chat-box" style="flex:1">
+        <div class="empty-state">Select documents → Start Chat → Ask questions</div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="question-input" placeholder="Ask a question about your documents..."
+               onkeydown="if(event.key==='Enter')askQuestion()"/>
+        <button class="btn btn-primary" id="ask-btn" onclick="askQuestion()" disabled>Ask</button>
+      </div>
     </div>
   </div>
-
 </div>
 
 <div id="toast"></div>
 
 <script>
-  const API = 'https://rag-document-chatbot-f4jy.onrender.com/api';
-  let selectedFile = null;
-  let activeDocId   = null;
-  let activeDocName = '';
+const API = 'http://127.0.0.1:8000/api';
+let token = localStorage.getItem('rag_token') || '';
+let currentUser = localStorage.getItem('rag_user') || '';
+let activeSessionId = null;
+let selectedDocIds = new Set();
 
-  // ── Toast ──────────────────────────────────────────
-  function toast(msg, type='success') {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.className = type;
-    t.style.display = 'block';
-    setTimeout(() => t.style.display = 'none', 3000);
-  }
+// ── helpers ─────────────────────────────────────────────────────────────
+function toast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = type; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
 
-  // ── File selection ─────────────────────────────────
-  function onFileSelected(input) {
-    selectedFile = input.files[0];
-    if (selectedFile) {
-      document.getElementById('file-label').textContent = selectedFile.name;
-      document.getElementById('upload-btn').disabled = false;
-    }
-  }
+function authHeaders() {
+  return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
 
-  // Drag and drop
-  const area = document.getElementById('upload-area');
-  area.addEventListener('dragover',  e => { e.preventDefault(); area.classList.add('dragover'); });
-  area.addEventListener('dragleave', () => area.classList.remove('dragover'));
-  area.addEventListener('drop', e => {
-    e.preventDefault();
-    area.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      selectedFile = file;
-      document.getElementById('file-label').textContent = file.name;
-      document.getElementById('upload-btn').disabled = false;
-    }
-  });
+function showApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  document.getElementById('header-username').textContent = `👤 ${currentUser}`;
+  loadDocs(); loadSessions();
+}
 
-  // ── Upload ─────────────────────────────────────────
-  async function uploadDocument() {
-    if (!selectedFile) return;
-    const btn = document.getElementById('upload-btn');
-    const status = document.getElementById('upload-status');
-    btn.disabled = true;
-    status.textContent = 'Uploading & indexing...';
+// ── auth ────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (tab==='login'&&i===0)||(tab==='register'&&i===1)));
+  document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
+  document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+}
 
-    const formData = new FormData();
-    formData.append('file', selectedFile);
+async function login() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value.trim();
+  const err = document.getElementById('login-error');
+  try {
+    const res  = await fetch(`${API}/auth/login/`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password}) });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.error; err.classList.remove('hidden'); return; }
+    token = data.access; currentUser = data.username;
+    localStorage.setItem('rag_token', token);
+    localStorage.setItem('rag_user', currentUser);
+    err.classList.add('hidden'); showApp();
+  } catch(e) { err.textContent = 'Connection error'; err.classList.remove('hidden'); }
+}
 
-    try {
-      const res  = await fetch(`${API}/upload/`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
-      toast(`✅ "${data.name}" indexed with ${data.chunks} chunks!`);
-      status.textContent = '';
-      document.getElementById('file-label').textContent = 'Click to choose a file';
-      selectedFile = null;
-      loadDocuments();
-    } catch (err) {
-      toast(err.message, 'error');
-      status.textContent = '';
-    }
-    btn.disabled = false;
-  }
+async function register() {
+  const username = document.getElementById('reg-user').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-pass').value.trim();
+  const err = document.getElementById('reg-error');
+  try {
+    const res  = await fetch(`${API}/auth/register/`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, email, password}) });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.error; err.classList.remove('hidden'); return; }
+    token = data.access; currentUser = data.username;
+    localStorage.setItem('rag_token', token);
+    localStorage.setItem('rag_user', currentUser);
+    err.classList.add('hidden'); showApp();
+  } catch(e) { err.textContent = 'Connection error'; err.classList.remove('hidden'); }
+}
 
-  // ── Load Documents ─────────────────────────────────
-  async function loadDocuments() {
-    const res  = await fetch(`${API}/documents/`);
-    const docs = await res.json();
-    const list = document.getElementById('doc-list');
+function logout() {
+  token = ''; currentUser = '';
+  localStorage.removeItem('rag_token'); localStorage.removeItem('rag_user');
+  document.getElementById('app-screen').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+}
 
-    if (!docs.length) {
-      list.innerHTML = '<div class="empty-state">No documents yet. Upload one above.</div>';
-      return;
-    }
+// ── upload ───────────────────────────────────────────────────────────────
+let selectedFile = null;
+function onFileSelected(input) {
+  selectedFile = input.files[0];
+  if (selectedFile) { document.getElementById('file-label').textContent = selectedFile.name; document.getElementById('upload-btn').disabled = false; }
+}
+const area = document.querySelector('.upload-area');
+area.addEventListener('dragover', e => { e.preventDefault(); area.style.borderColor='#667eea'; });
+area.addEventListener('dragleave', () => area.style.borderColor='');
+area.addEventListener('drop', e => { e.preventDefault(); area.style.borderColor=''; const f=e.dataTransfer.files[0]; if(f){selectedFile=f;document.getElementById('file-label').textContent=f.name;document.getElementById('upload-btn').disabled=false;} });
 
-    list.innerHTML = docs.map(d => `
-      <div class="doc-item ${d.id === activeDocId ? 'active' : ''}"
-           onclick="selectDocument('${d.id}', '${d.name.replace(/'/g,"\\'")}')">
-        <div>
-          <div class="doc-name">📄 ${d.name}</div>
-          <div class="doc-meta">${d.chunks} chunks · ${new Date(d.uploaded_at).toLocaleString()}</div>
-        </div>
-        <span class="badge badge-green">Ready</span>
+async function uploadDoc() {
+  if (!selectedFile) return;
+  const btn = document.getElementById('upload-btn');
+  const status = document.getElementById('upload-status');
+  btn.disabled = true; status.textContent = 'Uploading & indexing...';
+  const fd = new FormData(); fd.append('file', selectedFile);
+  try {
+    const res  = await fetch(`${API}/upload/`, { method:'POST', headers:{'Authorization':`Bearer ${token}`}, body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`✅ "${data.name}" indexed — ${data.chunks} chunks`);
+    document.getElementById('file-label').textContent = 'Click to choose PDF or TXT';
+    selectedFile = null; status.textContent = ''; loadDocs();
+  } catch(e) { toast(e.message, 'error'); status.textContent = ''; }
+  btn.disabled = false;
+}
+
+// ── documents ────────────────────────────────────────────────────────────
+async function loadDocs() {
+  const res  = await fetch(`${API}/documents/`, { headers: authHeaders() });
+  const docs = await res.json();
+  const list = document.getElementById('doc-list');
+  if (!docs.length) { list.innerHTML = '<div class="empty-state">No documents yet</div>'; return; }
+  list.innerHTML = docs.map(d => `
+    <div class="doc-item ${selectedDocIds.has(d.id)?'selected':''}" onclick="toggleDoc('${d.id}',this)">
+      <div class="doc-check">${selectedDocIds.has(d.id)?'✓':''}</div>
+      <div style="flex:1">
+        <div class="doc-name">📄 ${d.name}</div>
+        <div class="doc-meta">${d.chunks} chunks</div>
       </div>
-    `).join('');
-  }
+      <span class="badge badge-green">Ready</span>
+    </div>`).join('');
+}
 
-  // ── Select Document ────────────────────────────────
-  function selectDocument(id, name) {
-    activeDocId   = id;
-    activeDocName = name;
-    document.getElementById('ask-btn').disabled = false;
-    document.getElementById('active-doc-badge').innerHTML =
-      `<span class="badge badge-blue" style="margin-left:8px">${name}</span>`;
-    document.getElementById('chat-box').innerHTML = '';
-    loadHistory(id);
-    loadDocuments(); // refresh active highlight
-  }
+function toggleDoc(id, el) {
+  if (selectedDocIds.has(id)) { selectedDocIds.delete(id); el.classList.remove('selected'); el.querySelector('.doc-check').textContent = ''; }
+  else { selectedDocIds.add(id); el.classList.add('selected'); el.querySelector('.doc-check').textContent = '✓'; }
+}
 
-  // ── Load History ───────────────────────────────────
-  async function loadHistory(docId) {
-    const res  = await fetch(`${API}/history/${docId}/`);
-    const msgs = await res.json();
-    const box  = document.getElementById('chat-box');
-    if (!msgs.length) {
-      box.innerHTML = '<div class="empty-state">No messages yet. Ask your first question!</div>';
-      return;
-    }
-    box.innerHTML = '';
-    msgs.forEach(m => {
-      appendMessage('user', m.question);
-      appendMessage('bot',  m.answer, m.sources);
+// ── sessions ─────────────────────────────────────────────────────────────
+async function loadSessions() {
+  const res      = await fetch(`${API}/sessions/list/`, { headers: authHeaders() });
+  const sessions = await res.json();
+  const list     = document.getElementById('session-list');
+  if (!sessions.length) { list.innerHTML = '<div class="empty-state">No sessions yet</div>'; return; }
+  list.innerHTML = sessions.map(s => `
+    <div class="session-item ${s.session_id===activeSessionId?'active':''}" onclick="loadSession('${s.session_id}','${s.title}',${JSON.stringify(s.documents).replace(/"/g,'&quot;')})">
+      <div class="session-title">💬 ${s.title}</div>
+      <div class="session-docs">${s.documents.map(d=>d.name).join(', ')}</div>
+    </div>`).join('');
+}
+
+async function openCreateSession() {
+  if (!selectedDocIds.size) { toast('Select at least one document first', 'error'); return; }
+  const docNames = [...document.querySelectorAll('.doc-item.selected .doc-name')].map(el => el.textContent.replace('📄 ',''));
+  const title    = docNames.length === 1 ? docNames[0] : `Chat with ${docNames.length} docs`;
+  const res  = await fetch(`${API}/sessions/`, {
+    method: 'POST', headers: authHeaders(),
+    body: JSON.stringify({ document_ids: [...selectedDocIds], title })
+  });
+  const data = await res.json();
+  if (!res.ok) { toast(data.error, 'error'); return; }
+  toast('✅ Session created!');
+  loadSessions();
+  loadSession(data.session_id, data.title, data.documents);
+}
+
+async function loadSession(sessionId, title, docs) {
+  activeSessionId = sessionId;
+  document.getElementById('ask-btn').disabled = false;
+  document.getElementById('session-header').classList.remove('hidden');
+  document.getElementById('session-header').innerHTML =
+    `<strong>${title}</strong> — ${docs.map(d=>d.name).join(', ')}`;
+  document.getElementById('chat-box').innerHTML = '';
+  loadSessions();
+  const res  = await fetch(`${API}/history/${sessionId}/`, { headers: authHeaders() });
+  const msgs = await res.json();
+  if (!msgs.length) { document.getElementById('chat-box').innerHTML = '<div class="empty-state">Ask your first question!</div>'; return; }
+  msgs.forEach(m => { appendMsg('user', m.question); appendMsg('bot', m.answer, m.sources); });
+}
+
+// ── ask ──────────────────────────────────────────────────────────────────
+async function askQuestion() {
+  const input    = document.getElementById('question-input');
+  const question = input.value.trim();
+  if (!question || !activeSessionId) return;
+  input.value = '';
+  const box   = document.getElementById('chat-box');
+  const empty = box.querySelector('.empty-state');
+  if (empty) empty.remove();
+  appendMsg('user', question);
+  const thinking = document.createElement('div');
+  thinking.className = 'msg thinking'; thinking.textContent = '⏳ Searching documents...';
+  box.appendChild(thinking); box.scrollTop = box.scrollHeight;
+  try {
+    const res  = await fetch(`${API}/ask/`, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ session_id: activeSessionId, question })
     });
+    const data = await res.json();
+    thinking.remove();
+    if (!res.ok) throw new Error(data.error);
+    appendMsg('bot', data.answer, data.sources);
+  } catch(e) { thinking.remove(); appendMsg('bot', '❌ ' + e.message); }
+}
+
+function appendMsg(role, text, sources=[]) {
+  const box = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = text.replace(/\n/g,'<br/>');
+  if (role==='bot' && sources.length) {
+    const s = document.createElement('div'); s.className = 'sources';
+    s.innerHTML = '<strong>Sources:</strong><br/>' + sources.map((x,i)=>`[${i+1}] ${x.substring(0,120)}...`).join('<br/>');
+    div.appendChild(s);
   }
+  box.appendChild(div); box.scrollTop = box.scrollHeight;
+}
 
-  // ── Ask Question ───────────────────────────────────
-  async function askQuestion() {
-    const input = document.getElementById('question-input');
-    const question = input.value.trim();
-    if (!question || !activeDocId) return;
-
-    input.value = '';
-    const box = document.getElementById('chat-box');
-
-    // Remove empty state if present
-    const empty = box.querySelector('.empty-state');
-    if (empty) empty.remove();
-
-    appendMessage('user', question);
-
-    // Thinking indicator
-    const thinking = document.createElement('div');
-    thinking.className = 'msg thinking';
-    thinking.textContent = '⏳ Thinking...';
-    box.appendChild(thinking);
-    box.scrollTop = box.scrollHeight;
-
-    try {
-      const res  = await fetch(`${API}/ask/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ document_id: activeDocId, question })
-      });
-      const data = await res.json();
-      thinking.remove();
-      if (!res.ok) throw new Error(data.error || 'Request failed');
-      appendMessage('bot', data.answer, data.sources);
-    } catch (err) {
-      thinking.remove();
-      appendMessage('bot', '❌ Error: ' + err.message);
-    }
-  }
-
-  // ── Append Message ─────────────────────────────────
-  function appendMessage(role, text, sources=[]) {
-    const box = document.getElementById('chat-box');
-    const div = document.createElement('div');
-    div.className = `msg ${role}`;
-    div.innerHTML = text.replace(/\n/g, '<br/>');
-    if (role === 'bot' && sources.length) {
-      const src = document.createElement('div');
-      src.className = 'sources';
-      src.innerHTML = `<strong>Sources used:</strong><br/>` +
-        sources.map((s,i) => `[${i+1}] ${s.substring(0,120)}...`).join('<br/>');
-      div.appendChild(src);
-    }
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-  }
-
-  // ── Init ───────────────────────────────────────────
-  loadDocuments();
+// ── init ──────────────────────────────────────────────────────────────────
+if (token) showApp();
 </script>
 </body>
 </html>
