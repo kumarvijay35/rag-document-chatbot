@@ -364,7 +364,7 @@ function appendMsg(role, text, sources=[]) {
   div.innerHTML = text.replace(/\n/g,'<br/>');
   if (role==='bot' && sources.length) {
     const s = document.createElement('div'); s.className = 'sources';
-    s.innerHTML = '<strong>Sources:</strong><br/>' + sources.map((x,i)=>`[${i+1}] ${x.substring(0,120)}...`).join('<br/>');
+    s.innerHTML = '<strong>Sources:</strong><br/>' + sources.map((x,i)=>`[${i+1}] <strong>${x.document}</strong> (${Math.round(x.score*100)}% match): ${x.snippet.substring(0,120)}...`).join('<br/>');
     div.appendChild(s);
   }
   box.appendChild(div); box.scrollTop = box.scrollHeight;

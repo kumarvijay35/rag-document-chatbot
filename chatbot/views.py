@@ -11,7 +11,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Document, ChatSession, ChatMessage
-from .rag_service import ingest_document, answer_question, delete_document_vectors
+from . import inference_client
+from .inference_client import InferenceServiceError
+from .text_extraction import extract_text, TextExtractionError
 
 
 # ── AUTH VIEWS ────────────────────────────────────────────────────────────────
@@ -88,12 +90,27 @@ class DocumentUploadView(APIView):
         )
 
         try:
-            chunks = ingest_document(doc.file.path, str(doc.id))
-            doc.chunk_count = chunks
+            # Extraction stays in Django (file handling is Django's job);
+            # chunking + embedding + indexing are delegated to the
+            # FastAPI inference service.
+            text   = extract_text(doc.file.path)
+            result = inference_client.embed_document(
+                user_id=request.user.id,
+                document_id=doc.id,
+                text=text,
+                filename=doc.name,
+            )
+            doc.chunk_count = result["chunks_indexed"]
             doc.save()
-        except Exception as e:
+        except TextExtractionError as e:
             doc.delete()
-            return Response({"error": str(e)}, status=500)
+            return Response({"error": str(e)}, status=400)
+        except InferenceServiceError:
+            doc.delete()
+            return Response(
+                {"error": "Indexing service is temporarily unavailable, try again shortly"},
+                status=503
+            )
 
         return Response({
             "id":      str(doc.id),
@@ -131,7 +148,13 @@ class DocumentDeleteView(APIView):
         except Document.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
-        delete_document_vectors(str(doc.id))
+        try:
+            inference_client.delete_document(request.user.id, doc.id)
+        except InferenceServiceError:
+            # Don't block the user's delete if the index service is down;
+            # orphaned vectors are filtered out by ownership anyway.
+            pass
+
         if doc.file and os.path.exists(doc.file.path):
             os.remove(doc.file.path)
         doc.delete()
@@ -194,7 +217,8 @@ class AskQuestionView(APIView):
     """
     POST /api/ask/
     Body: { "session_id": "...", "question": "..." }
-    Searches across all documents in the session.
+    Searches across all documents in the session (delegated to the
+    FastAPI inference service).
     """
     permission_classes = [IsAuthenticated]
 
@@ -210,25 +234,44 @@ class AskQuestionView(APIView):
         except ChatSession.DoesNotExist:
             return Response({"error": "Session not found"}, status=404)
 
-        # Get all document collection names for this session
-        collection_names = [str(d.id) for d in session.documents.all()]
+        # Ownership check stays in Django: only this user's session's docs
+        session_docs = list(session.documents.all())
+        doc_ids   = [d.id for d in session_docs]
+        doc_names = {str(d.id): d.name for d in session_docs}
 
         try:
-            result = answer_question(question, collection_names)
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
+            result = inference_client.query_documents(
+                user_id=request.user.id,
+                question=question,
+                document_ids=doc_ids,
+            )
+        except InferenceServiceError:
+            return Response(
+                {"error": "Answering service is temporarily unavailable, try again shortly"},
+                status=503
+            )
+
+        # Attach human-readable document names to sources
+        sources = [
+            {
+                "document": doc_names.get(s["document_id"], "Unknown"),
+                "snippet":  s["text"][:300],
+                "score":    s["score"],
+            }
+            for s in result["sources"]
+        ]
 
         ChatMessage.objects.create(
             session=session,
             question=question,
             answer=result["answer"],
-            sources=result["sources"]
+            sources=sources
         )
 
         return Response({
             "question": question,
             "answer":   result["answer"],
-            "sources":  result["sources"]
+            "sources":  sources
         })
 
 

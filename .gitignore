@@ -2,6 +2,7 @@ venv/
 .env
 chroma_db/
 media/
-*.pyc
 __pycache__/
+*.pyc
 db.sqlite3
+desktop.ini
