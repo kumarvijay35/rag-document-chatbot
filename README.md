@@ -1,5 +1,15 @@
 # RAG Document Chatbot 🤖📄
 
+## Architecture
+
+This app is the user-facing half of a two-service system. Auth (JWT), document
+upload, text extraction, and chat sessions live here; chunking, embeddings,
+vector search (ChromaDB), and LLM generation (Groq LLaMA 3.3) run in a
+dedicated FastAPI microservice:
+**[rag-inference-service](https://github.com/kumarvijay35/rag-inference-service)**
+
+Django (8000) ──httpx + shared-secret──▶ FastAPI (8001) ──▶ ChromaDB + Groq
+
 An AI-powered document Q&A system. Upload any PDF or TXT and ask questions about it in plain English.
 
 ## 🚀 Live Demo
