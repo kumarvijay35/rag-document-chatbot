@@ -1,0 +1,4 @@
+staticfiles/** linguist-vendored
+templates/** linguist-documentation
+*.min.js linguist-vendored
+*.css linguist-vendored
